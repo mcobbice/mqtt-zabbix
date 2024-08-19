@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # -*- coding: iso-8859-1 -*-
 
 __author__ = "Kyle Gordon"
@@ -13,14 +13,14 @@ import sys
 import csv
 
 import paho.mqtt.client as mqtt
-import ConfigParser
+import configparser
 
 from datetime import datetime, timedelta
 
 from zbxsend import Metric, send_to_zabbix
 
 # Read the config file
-config = ConfigParser.RawConfigParser()
+config = configparser.RawConfigParser()
 config.read("/etc/mqtt-zabbix/mqtt-zabbix.cfg")
 
 # Use ConfigParser to pick out the settings
@@ -138,10 +138,16 @@ def on_message(mosq, obj, msg):
     """
     What to do when the client recieves a message from the broker
     """
-    logging.debug("Received: " + msg.payload +
-                  " received on topic " + msg.topic +
-                  " with QoS " + str(msg.qos))
-    process_message(msg)
+    try:
+        logging.debug("Received: " + str(msg.payload) +
+                      " received on topic " + str(msg.topic) +
+                      " with QoS " + str(msg.qos))
+        process_message(msg)
+
+    except Exception as e:
+        print(e)
+        raise(e)
+
 
 
 def on_log(mosq, obj, level, string):
@@ -170,23 +176,29 @@ def process_message(msg):
     logging.debug("Processing : " + msg.topic)
     if msg.topic in KeyMap.mapdict:
         if msg.payload == "ON":
-	    msg.payload = 1
+            msg.payload = 1
         if msg.payload == "OFF":
             msg.payload = 0
         zbxKey = KeyMap.mapdict[msg.topic]
-        (zbxKey,zbxHost) =zbxKey.split("::")
-  	if zbxHost == "": 
-	    zbxHost = KEYHOST	
+        (zbxKey,zbxHost) = zbxKey.split("::")
+        if zbxHost == "": 
+            zbxHost = KEYHOST   
         logging.info("Sending %s %s to Zabbix to host %s key %s",
                       msg.topic,
                       msg.payload,
-		      zbxHost,
+                      zbxHost,
                       zbxKey)
         # Zabbix can also accept text and character data...
         # should we sanitize input or just accept it as is?
+        payload_str = msg.payload.decode("utf-8")
+
+        print()
+        print(type(payload_str))
+        print()
+
         send_to_zabbix([Metric(zbxHost,
                         zbxKey,
-                        msg.payload,
+                        str(payload_str),
                         time.strftime("%s"))],
                         ZBXSERVER,
                         ZBXPORT)
